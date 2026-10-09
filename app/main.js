@@ -1,13 +1,9 @@
 const { app } = require( 'electron' )
-const { alert, log } = require( './modules/helpers' )
+const { alert } = require( './modules/helpers' )
 const { set_initial_interface } = require( './modules/interface' )
 
-// Enable auto-updates
-require( 'update-electron-app' )( {
-    logger: {
-        log: ( ...data ) => log( `[ update-electron-app ] `, ...data )
-    }
-} )
+// OFFLINE FORK: the 'update-electron-app' auto-updater was removed here so the
+// GUI never contacts GitHub releases in the background. Update via the repo instead.
 
 /* ///////////////////////////////
 // Event listeners

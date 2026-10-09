@@ -172,17 +172,7 @@ const initialize_battery = async () => {
 
     try {
 
-        // Check if dev mode
-        const { development, skipupdate } = process.env
-        if( development ) log( `Dev mode on, skip updates: ${ skipupdate }` )
-
-        // Check for network
-        const online_check_timeout_millisec = 3000
-        const online = await Promise.any( [
-            exec_async( `curl -I https://icanhazip.com  > /dev/null 2>&1`, online_check_timeout_millisec ),
-            exec_async( `curl -I https://github.com  > /dev/null 2>&1`, online_check_timeout_millisec )
-        ] ).then( () => true ).catch( () => false )
-        log( `Internet online: `, online)
+        // OFFLINE FORK: no network checks, no telemetry, no remote installs/updates.
 
         // Check if battery background executables are installed and owned by root.
         // Note: We assume that ownership and permissions of /usr/local folders are SIP protected by macOS.
@@ -209,37 +199,16 @@ const initialize_battery = async () => {
         log( `Found '${ `${ processes.stdout }`.replace( /\n/, '' ) }' dangling battery processes to kill` )
         await exec_async( `pkill -f "${battery_process_pattern}"` ).catch( e => log( `Error killing existing battery processes, usually means no running processes` ) )
 
-        // Reinstall or try updating
+        // Make sure the installation is intact (no network access in this fork)
         if( !is_installed ) {
-            log( `Installing battery for ${ USER }...` )
-            if( !online ) return alert( `Battery needs an internet connection to download the latest version, please connect to the internet and open the app again.` )
-            await alert( `Welcome to the Battery limiting tool. The app needs to install/update some components, so it will ask for your password. This should only be needed once.` )
-            try {
-                const result = await exec_sudo_async( `curl -s https://raw.githubusercontent.com/actuallymentor/battery/main/setup.sh | bash -s -- $USER` )
-                log( `Install result success `, result )
-                await alert( `Battery background components installed/updated successfully. You can find the battery limiter icon in the top right of your menu bar.` )
-            } catch ( e ) {
-                log( `Battery setup failed: `, e )
-                await alert( `Failed to install battery background components.\n\n${e.message}`)
-                app.quit()
-                app.exit()
-            }
+            log( `Battery background components are missing or not root-owned.` )
+            await alert( `Battery background components are not installed correctly.\n\nThis fork does not download anything: open a terminal and run './setup.sh' from your local clone of the battery repository (e.g. ~/Repos/battery), then restart this app.` )
+            app.quit()
+            app.exit()
+            return
         } else {
-            // Try updating to the latest version
-            if( !online ) return log( `Skipping battery update because we are offline` )
-            if( skipupdate ) return log( `Skipping update due to environment variable` )
-            log( `Updating battery...` )
-            try {
-                const result = await exec_async( `sudo -n ${ battery } update_silent` )
-                log( `Update details: `, result )
-            } catch ( e ) {
-                log( `Battery update failed: `, e )
-                await alert( `Couldn’t complete the update.\n\n${e.message}`)
-            }
+            log( `Skipping update: network updates are disabled in this fork. To update, run 'git pull && ./update.sh' in the repo.` )
         }
-
-        // Basic user tracking on app open, run it in the background so it does not cause any delay for the user
-        if( online ) exec_async( `nohup curl "https://unidentifiedanalytics.web.app/touch/?namespace=battery" > /dev/null 2>&1` ).catch(() => {})
 
     } catch ( e ) {
         log( `Error Initializing battery: `, e )

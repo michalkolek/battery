@@ -17,7 +17,6 @@
         "**/*"
       ]
     },
-    "afterSign": "./build_hooks/afterSign.js",
     "mac": {
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
@@ -31,7 +30,7 @@
     "build": "rm -rf ./dist/* && electron-builder build --mac --arm64",
     "lint": "eslint --fix src"
   },
-  "repository": "https://github.com/actuallymentor/battery",
+  "repository": "https://github.com/michalkolek/battery",
   "keywords": [
     "battery",
     "m1",
@@ -53,7 +52,9 @@
     "nodemon": "^3.1.0"
   },
   "dependencies": {
-    "electron-store": "^8.2.0",
-    "update-electron-app": "^2.0.1"
+    "electron-store": "^8.2.0"
+  },
+  "allowScripts": {
+    "electron@29.2.0": true
   }
 }

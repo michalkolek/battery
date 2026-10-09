@@ -75,7 +75,7 @@ const generate_app_menu = async () => {
                 submenu: [
                     {
                         label: `Check for updates`,
-                        click: () => shell.openExternal( `https://github.com/actuallymentor/battery/releases` )
+                        click: () => shell.openExternal( `https://github.com/michalkolek/battery/releases` )
                     },
                     {
                         type: 'normal',
@@ -92,17 +92,17 @@ const generate_app_menu = async () => {
                     },
                     {
                         label: `User manual`,
-                        click: () => shell.openExternal( `https://github.com/actuallymentor/battery#readme` )
+                        click: () => shell.openExternal( `https://github.com/michalkolek/battery#readme` )
                     },
                     {
                         type: 'normal',
                         label: 'Command-line usage',
-                        click: () => shell.openExternal( `https://github.com/actuallymentor/battery#-command-line-version` )
+                        click: () => shell.openExternal( `https://github.com/michalkolek/battery#-command-line-version` )
                     },
                     {
                         type: 'normal',
                         label: 'Help and feature requests',
-                        click: () => shell.openExternal( `https://github.com/actuallymentor/battery/issues` )
+                        click: () => shell.openExternal( `https://github.com/michalkolek/battery/issues` )
                     }
                 ]
             },

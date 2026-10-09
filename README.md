@@ -2,6 +2,11 @@
 
 <img width="300px" align="right" src="./screenshots/tray.png"/>This tool makes it possible to keep a chronically plugged in Apple Silicon Macbook at `80%` battery, since that will prolong the longevity of the battery. It is free and open-source and will remain that way.
 
+> **About this fork:** it is fully offline. All network calls from the original
+> project have been removed: no auto-updates, no version checks, no telemetry.
+> The app and CLI never contact anything — update them yourself by pulling this
+> repo and rerunning `./setup.sh`.
+
 > Want to know if this tool does anything or is just a placebo? Read [this excellent article](https://batteryuniversity.com/article/bu-808-how-to-prolong-lithium-based-batteries). TL;DR: keep your battery cool, keep it at 80% when plugged in, and discharge it as shallowly as feasible.
 
 ### Requirements
@@ -10,13 +15,12 @@ This is an app for Apple Silicon Macs. It will not work on Intel macs. Do you ha
 
 ### Installation
 
-- Option 1: install the app through brew with `brew install battery`
-- Option 2: [download the app dmg version here](https://github.com/actuallymentor/battery/releases/)
-- Option 3: install ONLY the command line interface (see section below)
+This fork does not ship prebuilt apps and does not install over the network. Install from a clone of this repo:
 
-When installing via brew or dmg, opening the macOS app is required to complete the installation.
+- Option 1: the command line interface — `git clone https://github.com/michalkolek/battery.git && cd battery && ./setup.sh` (see the CLI section below)
+- Option 2: the menu bar GUI — install the CLI first, then build the app from source as described in "Building the GUI app from source" below
 
-The first time you open the app, it will ask for your administator password so it can install the needed components. Please note that the app:
+The first time you run the setup, it will ask for your administrator password so it can install the needed components. Please note that the app:
 
 - Discharges your battery until it reaches 80%, **even when plugged in**
 - Disables charging when your battery is above 80% charged
@@ -25,7 +29,7 @@ The first time you open the app, it will ask for your administator password so i
 - Keeps the limit engaged even after closing the tray app
 - Also automatically installs the `battery` command line tool. If you want a custom charging percentage, the CLI is the only way to do that.
 
-Do you have questions, comments, or feature requests? [Open an issue here](https://github.com/actuallymentor/battery/issues) or [Tweet at me](https://twitter.com/actuallymentor).
+Do you have questions, comments, or feature requests? [Open an issue here](https://github.com/michalkolek/battery/issues).
 
 ---
 
@@ -33,23 +37,25 @@ Do you have questions, comments, or feature requests? [Open an issue here](https
 
 > If you don't know what a "command line" is, ignore this section. You don't need it.
 
-The GUI app uses a command line tool under the hood. Installing the GUI automatically installs the CLI as well. You can also separately install the CLI.
+The GUI app uses a command line tool under the hood. In this fork the CLI is installed from the local repository instead of being downloaded.
 
 The CLI is used for managing the battery charging status for Apple Silicon Macbooks. Can be used to enable/disable the Macbook from charging the battery when plugged into power.
 
 ### Installation
 
-One-line installation:
+Install the CLI from a clone of this repo (nothing is downloaded):
 
 ```bash
-curl -s https://raw.githubusercontent.com/actuallymentor/battery/main/setup.sh | bash
+git clone https://github.com/michalkolek/battery.git && cd battery && ./setup.sh
 ```
 
 This will:
 
-1. Download the precompiled `smc` tool in this repo (built from the [hholtmann/smcFanControl](https://github.com/hholtmann/smcFanControl.git) repository)
-2. Install `smc` to `/usr/local/bin`
-3. Install `battery` to `/usr/local/bin`
+1. Install the precompiled `smc` tool from this repo (built from the [hholtmann/smcFanControl](https://github.com/hholtmann/smcFanControl.git) repository) to `/usr/local/co.palokaj.battery`
+2. Install the `battery` script there too, with a `/usr/local/bin/battery` symlink for your PATH
+3. Configure `sudo` so the background limiter runs without a password
+
+To update later: `git pull && ./setup.sh` (or `./update.sh` to only refresh the background script).
 
 ### Usage
 
@@ -111,14 +117,43 @@ Usage:
     This is already used in the setup script, so you should't need it.
 
   battery update
-    update the battery utility to the latest version
+    not needed in this fork: run 'git pull && ./setup.sh' in the repo
 
   battery reinstall
-    reinstall the battery utility to the latest version (reruns the installation script)
+    not needed in this fork: run './setup.sh' in the repo
 
   battery uninstall
     enable charging, remove the smc tool, and the battery script
 ```
+
+## Building the GUI app from source
+
+The GUI lives in `./app`. To build it locally:
+
+```bash
+cd app
+npm install
+npm run build
+```
+
+Because local builds are not signed with an Apple Developer certificate,
+macOS 15 (Sequoia) may refuse to open the freshly built app with an
+"app is damaged and can't be opened" error. This is not corruption — macOS is
+rejecting the signature. Fix it by re-signing the app ad-hoc before launching:
+
+```bash
+# electron-builder leaves the app at app/dist/mac-arm64/battery.app
+cp -R app/dist/mac-arm64/battery.app /tmp/BatteryFixed.app
+xattr -cr /tmp/BatteryFixed.app
+codesign --force --deep --sign - /tmp/BatteryFixed.app
+rm -rf /Applications/Battery.app
+mv /tmp/BatteryFixed.app /Applications/Battery.app
+open /Applications/Battery.app
+```
+
+Repeat the three `cp`/`xattr`/`codesign` steps after every rebuild, since each
+new build is unsigned again. (Ad-hoc signing only makes the app run on your own
+Mac; it is not enough for distributing to others.)
 
 ## FAQ & Troubleshooting
 
@@ -130,7 +165,7 @@ I would actually have preferred using Al Dente, but decided to create a command-
 
 ### "It's not working"
 
-If you used one of the earlier versions of the `battery` utility, you may run into [path/permission issues](https://github.com/actuallymentor/battery/issues/8). This is not your fault but mine. To fix it:
+If you used one of the earlier versions of the `battery` utility, you may run into [path/permission issues](https://github.com/michalkolek/battery/issues/8). This is not your fault but mine. To fix it:
 
 ```
 sudo rm -rf ~/.battery
@@ -138,18 +173,7 @@ binfolder=/usr/local/bin
 sudo rm -v "$binfolder/smc" "$binfolder/battery"
 ```
 
-Then reopen the app and things should work. If not, [open an issue](https://github.com/actuallymentor/battery/issues/new/choose) and I'll try to help you fix it.
-
-### A note to Little Snitch users
-
-This tool calls a number of urls, blocking all of them will only break auto-updates.
-
-1. `unidentifiedanalytics.web.app` is a self-made app that tracks app installations, I use it to see if enough people use the app to justify spending time on it. It tracks only how many unique ip addresses open the app.
-1. `icanhazip.com` is used to see if there is an internet connection
-1. `github.com` is used both as a liveness check and as the source of updates for the underlying command-line utility
-1. `electronjs.org` hosts the update server for the GUI
-
-All urls are called over `https` and so not leak data. Unidentified Analytics keeps track of unique ip addresses that open the app, but nothing else.
+Then reopen the app and things should work. If not, [open an issue](https://github.com/michalkolek/battery/issues/new/choose) and I'll try to help you fix it.
 
 ### What distinguishes this project from Optimized Charging?
 
@@ -161,8 +185,6 @@ This app is a similar alternative to Optimized Charging, giving the user control
 
 ### How do I support this project?
 
-Do you know how to code? Open a pull-request for a feature with the label [help wanted (PR welcome)](https://github.com/actuallymentor/battery/labels/help%20wanted%20%28PR%20welcome%29).
+Do you know how to code? Open a pull-request for a feature with the label [help wanted (PR welcome)](https://github.com/michalkolek/battery/labels/help%20wanted%20%28PR%20welcome%29).
 
-Do you have an awesome feature idea? [Add a feature request](https://github.com/actuallymentor/battery/issues/new/choose)
-
-Do you just want to keep me motivated to update the app? [Tweet at me](https://twitter.com/actuallymentor)
+Do you have an awesome feature idea? [Add a feature request](https://github.com/michalkolek/battery/issues/new/choose)

@@ -4,7 +4,7 @@
 ## Update management
 ## variables are used by this binary as well at the update script
 ## ###############
-BATTERY_CLI_VERSION="v1.3.4"
+BATTERY_CLI_VERSION="v1.3.5"
 
 # If a script may run as root:
 #   - Reset PATH to safe defaults at the very beginning of the script.
@@ -46,15 +46,9 @@ binfolder="/usr/local/co.palokaj.battery"
 battery_binary="$binfolder/battery"
 smc_binary="$binfolder/smc"
 
-# GitHub URLs for setup and updates.
-# Temporarily set to your username and branch to test update functionality with your fork.
-# Security note: Do NOT allow github_user or github_branch to be injected via environment
-#                variables or any other means. Keep them hardcoded.
-github_user="actuallymentor"
-github_branch="main"
-github_url_setup_sh="https://raw.githubusercontent.com/${github_user}/battery/${github_branch}/setup.sh"
-github_url_update_sh="https://raw.githubusercontent.com/${github_user}/battery/${github_branch}/update.sh"
-github_url_battery_sh="https://raw.githubusercontent.com/${github_user}/battery/${github_branch}/battery.sh"
+# OFFLINE FORK: all network access has been removed. This script never calls
+# home to GitHub for version checks, updates, or reinstalls. To update, run
+# 'git pull && ./setup.sh' inside a clone of the repository.
 
 ## ###############
 ## Housekeeping
@@ -121,10 +115,10 @@ Usage:
     eg: battery discharge 90
 
   battery update
-    update the battery utility to the latest version
+    this fork does not update over the network; run 'git pull && ./setup.sh' in the repo
 
   battery reinstall
-    reinstall the battery utility to the latest version (reruns the installation script)
+    this fork does not reinstall over the network; run './setup.sh' in the repo
 
   battery uninstall
     enable charging, remove the smc tool, and the battery script
@@ -137,7 +131,7 @@ Usage:
 # - Allows this script to execute 'sudo smc -w' commands without requiring a user password.
 # - Allows passwordless updates.
 visudoconfig="
-# Visudo settings for the battery utility installed from https://github.com/actuallymentor/battery
+# Visudo settings for the battery utility installed from this repository (offline fork)
 # intended to be placed in $visudo_file on a mac
 
 # Allow passwordless update (All battery app executables are owned by root to prevent privilege escalation attacks)
@@ -536,18 +530,6 @@ function fixup_installation_owner_mode() {
 	sudo rm -f "$configfolder/visudo.tmp"
 }
 
-function is_latest_version_installed() {
-	# Check if content is reachable first with HEAD request
-	curl -sSI "$github_url_battery_sh" &>/dev/null || return 0
-
-	# Download the remote script then check if our version string is present.
-	# Note: piping curl directly into grep -q causes a broken-pipe error (curl error 56)
-	# because grep -q exits on first match while curl is still writing.
-	local remote_script
-	remote_script="$(curl -sS "$github_url_battery_sh" 2>/dev/null)"
-	echo "$remote_script" | grep -q "$BATTERY_CLI_VERSION"
-}
-
 ## ###############
 ## Actions
 ## ###############
@@ -629,18 +611,16 @@ if [[ "$action" == "visudo" ]]; then
 	exit 0
 fi
 
-# Reinstall helper
+# Reinstall helper (network-disabled fork: point at the local installer instead)
 if [[ "$action" == "reinstall" ]]; then
-	echo "This will run curl -sS ${github_url_setup_sh} | bash"
-	if [[ ! "$setting" == "silent" ]]; then
-		echo "Press any key to continue"
-		read
-	fi
-	curl -sS "$github_url_setup_sh" | bash
-	exit 0
+	echo "❌ Network reinstalls are disabled in this fork."
+	echo "To reinstall, run ./setup.sh from a local clone of the repository."
+	exit 1
 fi
 
 # Update helper for GUI app
+# In this fork there are no network updates; this action only refreshes the
+# visudo configuration and fixes up installation ownership (both purely local).
 if [[ "$action" == "update_silent" ]]; then
 
 	assert_running_as_root
@@ -650,13 +630,7 @@ if [[ "$action" == "update_silent" ]]; then
 		exit 0
 	fi
 
-	# Try updating
-	if ! is_latest_version_installed; then
-		curl -sS "$github_url_update_sh" | bash
-		echo "✅ battery background script was updated to the latest version."
-	else
-		echo "☑️  No updates found"
-	fi
+	echo "☑️  No updates: network updates are disabled in this fork."
 
 	# Update the visudo configuration on each update ensuring that the latest version
 	# is always installed.
@@ -678,45 +652,21 @@ if [[ "$action" == "update" ]]; then
 
 	assert_not_running_as_root
 
-	# The older GUI versions 1_3_2 and below can not run silent passwordless update and
-	# will complain with alert. Just exit with success and let them update themselves.
-	# Remove this condition in future versions when you believe the old UI is not used anymore.
+	# Older GUI versions (1_3_2 and below) call 'battery update silent'; exit quietly.
 	if [[ "$setting" == "silent" ]]; then
 		exit 0
 	fi
 
-	if ! curl -fsI "$github_url_battery_sh" &>/dev/null; then
-		echo "❌ Can't check for updates: no internet connection (or GitHub unreachable)."
-		exit 1
-	fi
+	echo "☑️  Network updates are disabled in this fork."
+	echo "To update, run 'git pull && ./setup.sh' from a local clone of the repository."
 
-	# The code below repeats integrity checks from GUI app, specifically from
-	# app/modules/battery.js: 'initialize_battery'. Try keeping it consistent.
-
-	function check_installation_integrity() (
-		function not_link_and_root_owned() {
-			[[ ! -L "$1" ]] && [[ $(stat -f '%u' "$1") -eq 0 ]]
-		}
-
-		not_link_and_root_owned "$binfolder" && \
-		not_link_and_root_owned "$battery_binary" && \
-		not_link_and_root_owned "$smc_binary" && \
-		sudo -n "$battery_binary" update_silent is_enabled >/dev/null 2>&1
-	)
-
-	if ! check_installation_integrity; then
-		version_before="0" # Force restart maintenance process
-		echo -e "‼️ The battery installation seems to be broken. Forcing reinstall...\n"
-		$battery_binary reinstall silent
-	else
-		version_before="$($battery_binary version)"
-		sudo $battery_binary update_silent
-	fi
-
-	# Restart background maintenance process if update was installed
-	if [[ -x $battery_binary ]] && [[ "$($battery_binary version)" != "$version_before" ]]; then
-		printf "\n%s\n" "🛠️  Restarting 'battery maintain' ..."
-		$battery_binary maintain recover
+	# Keep the local visudo config and ownership in sync with this script.
+	if [[ -x $battery_binary ]]; then
+		$battery_binary visudo
+		username="$(determine_unprivileged_user "")"
+		if [[ -n "$username" && "$username" != "root" ]]; then
+			fixup_installation_owner_mode "$username"
+		fi
 	fi
 
 	exit 0
