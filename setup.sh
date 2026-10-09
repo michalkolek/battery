@@ -45,6 +45,8 @@ if [[ "$calling_user" == "root" ]]; then
 fi
 
 # Set variables
+# Offline fork: install from the local clone this script lives in (no downloads).
+repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 binfolder=/usr/local/co.palokaj.battery
 configfolder=/Users/$calling_user/.battery
 pidfile=$configfolder/battery.pid
@@ -60,22 +62,16 @@ echo "[  1 ] Superuser permissions acquired."
 sudo rm -f /usr/local/bin/battery
 sudo rm -f /usr/local/bin/smc
 
-echo "[  2 ] Allocate temp folder"
-tempfolder="$(mktemp -d)"
-function cleanup() { rm -rf "$tempfolder"; }
-trap cleanup EXIT
+echo "[  2 ] Verify local repository contents"
+for required in "$repo_dir/battery.sh" "$repo_dir/dist/smc"; do
+	if [[ ! -f "$required" ]]; then
+		echo "❌ Missing $required — run setup.sh from a full clone of the repository."
+		exit 1
+	fi
+done
+batteryfolder="$repo_dir"
 
-echo "[  3 ] Downloading latest version of battery CLI"
-# Note: github names zips by <reponame>-<branchname>.replace( '/', '-' )
-update_branch="main"
-in_zip_folder_name="battery-$update_branch"
-batteryfolder="$tempfolder/battery"
-rm -rf $batteryfolder
-mkdir -p $batteryfolder
-curl -sSL -o $batteryfolder/repo.zip "https://github.com/actuallymentor/battery/archive/refs/heads/$update_branch.zip"
-unzip -qq $batteryfolder/repo.zip -d $batteryfolder
-cp -r $batteryfolder/$in_zip_folder_name/* $batteryfolder
-rm $batteryfolder/repo.zip
+echo "[  3 ] Skipping download: offline fork installs from $repo_dir"
 
 echo "[  4 ] Make sure $binfolder is recreated and owned by root"
 sudo rm -rf "$binfolder" # start with an empty $binfolder and ensure there is no symlink or file at the path
@@ -124,8 +120,7 @@ sudo chown -hf $calling_user "$launch_agent_plist" 2>/dev/null
 echo "[ 10 ] Setup visudo configuration"
 sudo $binfolder/battery visudo
 
-echo "[ 11 ] Remove temp folder $tempfolder"
-rm -rf $tempfolder
+echo "[ 11 ] Nothing to clean up: installed from local repository"
 
 echo -e "\n🎉 Battery tool installed. Type \"battery help\" for instructions.\n"
 
