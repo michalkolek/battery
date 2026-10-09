@@ -1,190 +1,125 @@
-# Battery charge limiter for Apple Silicon Macbook devices
+# Battery — offline charge limiter for Apple Silicon MacBooks
 
-<img width="300px" align="right" src="./screenshots/tray.png"/>This tool makes it possible to keep a chronically plugged in Apple Silicon Macbook at `80%` battery, since that will prolong the longevity of the battery. It is free and open-source and will remain that way.
+A fork of [actuallymentor/battery](https://github.com/actuallymentor/battery) that keeps a chronically plugged-in Apple Silicon MacBook at a charge limit (80% by default) to prolong battery longevity. Free and open-source (MIT), and it stays that way.
 
-> **About this fork:** it is fully offline. All network calls from the original
-> project have been removed: no auto-updates, no version checks, no telemetry.
-> The app and CLI never contact anything — update them yourself by pulling this
-> repo and rerunning `./setup.sh`.
+> Want to know whether limiting charge does anything or is just a placebo? Read [this batteryuniversity article](https://batteryuniversity.com/article/bu-808-how-to-prolong-lithium-based-batteries). TL;DR: keep your battery cool, keep it around 80% when plugged in, and discharge it as shallowly as feasible.
 
-> Want to know if this tool does anything or is just a placebo? Read [this excellent article](https://batteryuniversity.com/article/bu-808-how-to-prolong-lithium-based-batteries). TL;DR: keep your battery cool, keep it at 80% when plugged in, and discharge it as shallowly as feasible.
+## What this fork changes
+
+**This is the fully-offline version: no component ever reaches out to the internet on its own.**
+
+The original project phones home in a few places that are easy to miss:
+
+| Original behaviour | This fork |
+| --- | --- |
+| Menu bar app pings `unidentifiedanalytics.web.app` on every launch (counts unique visitor IPs) | removed — no telemetry |
+| Menu bar app checks connectivity by requesting `icanhazip.com` (an IP-disclosure probe) | removed |
+| CLI checks GitHub for a newer script, then downloads and runs `battery.sh`/`setup.sh`/`update.sh` via `curl \| bash` | removed — `battery update`/`reinstall` only do local maintenance and point at this repo |
+| `setup.sh` downloads the upstream repo zip from GitHub | installs from the local clone instead |
+| GUI auto-updates itself in the background from GitHub releases (`update-electron-app`) | removed |
+
+Nothing here downloads or uploads anything at runtime. The only network code left is menu links that open your browser when **you** click them, and the optional `--pull` flag on `./update.sh`, which runs `git pull` only when you ask for it.
+
+Why go offline? Auto-updating a tool that holds a passwordless `sudo` entry for writing battery firmware values is a supply-chain risk you shouldn't accept by default: with network updates, whoever controls the upstream repo controls what runs as root on your Mac. Here, every change is something you pulled and installed deliberately.
 
 ### Requirements
 
-This is an app for Apple Silicon Macs. It will not work on Intel macs. Do you have an older Mac? Consider the free version of the [Al Dente](https://apphousekitchen.com/) software package. It is a good alternative and has a premium version with many more features.
+Apple Silicon Macs only (no Intel). Older Macs should look at [AlDente](https://apphousekitchen.com/).
 
-### Installation
-
-This fork does not ship prebuilt apps and does not install over the network. Install from a clone of this repo:
-
-- Option 1: the command line interface — `git clone https://github.com/michalkolek/battery.git && cd battery && ./setup.sh` (see the CLI section below)
-- Option 2: the menu bar GUI — install the CLI first, then build the app from source as described in "Building the GUI app from source" below
-
-The first time you run the setup, it will ask for your administrator password so it can install the needed components. Please note that the app:
-
-- Discharges your battery until it reaches 80%, **even when plugged in**
-- Disables charging when your battery is above 80% charged
-- Enables charging when your battery is under 80% charged
-- Keeps the limit engaged even after rebooting
-- Keeps the limit engaged even after closing the tray app
-- Also automatically installs the `battery` command line tool. If you want a custom charging percentage, the CLI is the only way to do that.
-
-Do you have questions, comments, or feature requests? [Open an issue here](https://github.com/michalkolek/battery/issues).
-
----
-
-## 🖥 Command-line version
-
-> If you don't know what a "command line" is, ignore this section. You don't need it.
-
-The GUI app uses a command line tool under the hood. In this fork the CLI is installed from the local repository instead of being downloaded.
-
-The CLI is used for managing the battery charging status for Apple Silicon Macbooks. Can be used to enable/disable the Macbook from charging the battery when plugged into power.
-
-### Installation
-
-Install the CLI from a clone of this repo (nothing is downloaded):
+## Installing the command line tool
 
 ```bash
 git clone https://github.com/michalkolek/battery.git && cd battery && ./setup.sh
 ```
 
-This will:
+This asks for your administrator password once, then:
 
-1. Install the precompiled `smc` tool from this repo (built from the [hholtmann/smcFanControl](https://github.com/hholtmann/smcFanControl.git) repository) to `/usr/local/co.palokaj.battery`
-2. Install the `battery` script there too, with a `/usr/local/bin/battery` symlink for your PATH
-3. Configure `sudo` so the background limiter runs without a password
+1. Installs the precompiled `smc` tool from this repo (built from [hholtmann/smcFanControl](https://github.com/hholtmann/smcFanControl.git)) and the `battery` script into `/usr/local/co.palokaj.battery` (root-owned)
+2. Symlinks `/usr/local/bin/battery` so the command is on your PATH
+3. Configures `sudo` so battery commands run without a password
 
-To update later: `git pull && ./setup.sh` (or `./update.sh` to only refresh the background script).
+The utility:
 
-### Usage
+- Disables charging when your battery is above your limit
+- Enables charging when it dips below
+- Keeps the limit engaged across reboots and after closing the GUI
 
-Example usage:
+## Using the command line tool
 
-```shell
-# This will enable charging when your battery dips under 80, and disable it when it exceeds 80
+```bash
+# Maintain between 70-80%
+battery maintain 70-80
+
+# Maintain at 80%
 battery maintain 80
 
-# This will maintain your battery between 70-80%, letting it rest in that range
-battery maintain 70-80
+# Check status / stop / get help
+battery status
+battery maintain stop
+battery
 ```
 
-After running a command like `battery charging off` you can verify the change visually by looking at the battery icon:
+Other commands: `charging on/off`, `adapter on/off`, `charge LEVEL`, `discharge LEVEL`, `calibrate`, `logs`, `uninstall`. Run `battery` without parameters for full help.
 
-![Battery not charging](./screenshots/not-charging-screenshot.png)
+## Installing the menu bar GUI
 
-After running `battery charging on` you will see it change to this:
-
-![Battery charging](./screenshots/charging-screenshot.png)
-
-For help, run `battery` without parameters:
-
-```
-Battery CLI utility v1.0.1
-
-Usage:
-
-  battery status
-    output battery SMC status, % and time remaining
-
-  battery maintain LEVEL[1-100,stop] or RANGE[lower-upper]
-    reboot-persistent battery level maintenance: turn off charging above, and on below a certain value
-    eg: battery maintain 80           # maintain at 80%
-    eg: battery maintain 70-80        # maintain between 70-80%
-    eg: battery maintain stop
-
-  battery charging SETTING[on/off]
-    manually set the battery to (not) charge
-    eg: battery charging on
-
-  battery adapter SETTING[on/off]
-    manually set the adapter to (not) charge even when plugged in
-    eg: battery adapter off
-
-  battery calibrate
-    calibrate the battery by discharging it to 15%, then recharging it to 100%, and keeping it there for 1 hour
-
-  battery charge LEVEL[1-100]
-    charge the battery to a certain percentage, and disable charging when that percentage is reached
-    eg: battery charge 90
-
-  battery discharge LEVEL[1-100]
-    block power input from the adapter until battery falls to this level
-    eg: battery discharge 90
-
-  battery visudo
-    ensure you don't need to call battery with sudo
-    This is already used in the setup script, so you should't need it.
-
-  battery update
-    not needed in this fork: run 'git pull && ./setup.sh' in the repo
-
-  battery reinstall
-    not needed in this fork: run './setup.sh' in the repo
-
-  battery uninstall
-    enable charging, remove the smc tool, and the battery script
-```
-
-## Building the GUI app from source
-
-The GUI lives in `./app`. To build it locally:
+The GUI wraps the CLI. In this fork there is no prebuilt app to download — you build it locally:
 
 ```bash
 cd app
 npm install
-npm run build
+npm run build          # builds, and automatically ad-hoc re-signs the app
+npm run install:local  # moves it into /Applications and launches it
 ```
 
-Because local builds are not signed with an Apple Developer certificate,
-macOS 15 (Sequoia) may refuse to open the freshly built app with an
-"app is damaged and can't be opened" error. This is not corruption — macOS is
-rejecting the signature. Fix it by re-signing the app ad-hoc before launching:
+(or just `npm run rebuild` to do both steps).
+
+The build's `afterPack` hook re-signs the app automatically: macOS 15 (Sequoia) kills locally built, unsigned Electron apps with an "app is damaged and can't be opened" error, and ad-hoc signing is what fixes it. You'll only ever need to do it by hand if you copy the `.app` out of a `node_modules` or downloaded folder:
 
 ```bash
-# electron-builder leaves the app at app/dist/mac-arm64/battery.app
-cp -R app/dist/mac-arm64/battery.app /tmp/BatteryFixed.app
-xattr -cr /tmp/BatteryFixed.app
-codesign --force --deep --sign - /tmp/BatteryFixed.app
-rm -rf /Applications/Battery.app
-mv /tmp/BatteryFixed.app /Applications/Battery.app
-open /Applications/Battery.app
+xattr -cr Battery.app
+codesign --force --deep --sign - Battery.app
 ```
 
-Repeat the three `cp`/`xattr`/`codesign` steps after every rebuild, since each
-new build is unsigned again. (Ad-hoc signing only makes the app run on your own
-Mac; it is not enough for distributing to others.)
+The first time the app opens it may ask for your password to install the CLI components; if it complains, run `./setup.sh` from the repo as described above.
 
-## FAQ & Troubleshooting
+## Updating this fork
 
-### Why does this exist?
+Nothing updates itself, by design:
 
-I was looking at the Al Dente software package for battery limiting, but I found the [license too limiting](https://github.com/davidwernhart/AlDente/discussions/558) for a poweruser like myself.
-
-I would actually have preferred using Al Dente, but decided to create a command-line utility to replace it as a side-project on holiday. A colleague mentioned they would like a GUI, so I spend a few evenings setting up an Electron app. And voila, here we are.
-
-### "It's not working"
-
-If you used one of the earlier versions of the `battery` utility, you may run into [path/permission issues](https://github.com/michalkolek/battery/issues/8). This is not your fault but mine. To fix it:
-
+```bash
+cd battery
+git pull
+./setup.sh            # refresh the CLI (and visudo config)
+cd app && npm run rebuild   # rebuild the GUI, if you use it
 ```
+
+`./update.sh` is a lighter alternative that only refreshes the installed background script from the local clone (`./update.sh --pull` does a `git pull` first).
+
+## Troubleshooting
+
+### "App is damaged and can't be opened"
+
+The re-signed app lost its signature somehow (moved between machines, partially updated, etc.). Re-apply it:
+
+```bash
+codesign --force --deep --sign - /Applications/battery.app
+```
+
+Or just rerun `npm run rebuild` in `app/`.
+
+### Permission/path issues from old versions
+
+```bash
 sudo rm -rf ~/.battery
 binfolder=/usr/local/bin
 sudo rm -v "$binfolder/smc" "$binfolder/battery"
 ```
 
-Then reopen the app and things should work. If not, [open an issue](https://github.com/michalkolek/battery/issues/new/choose) and I'll try to help you fix it.
+then rerun `./setup.sh`.
 
-### What distinguishes this project from Optimized Charging?
+## Credits
 
-Optimized Charging, a feature that is built into MacOS, aims to ensure the longevity and health of your battery. It does so by "delaying charging the battery past 80% when it predicts that you’ll be plugged in for an extended period of time, and aims to charge the battery before you unplug," as explained in [Apple's user guide](https://support.apple.com/en-ca/guide/mac-help/mchlfc3b7879/mac#:~:text=Optimized%20Battery%20Charging%3A%20To%20reduce,the%20battery%20before%20you%20unplug.).
-
-Additionally, Optimized Charging uses machine learning to decide when the battery should be held at 80%, and when it should become fully charged. If your Mac is not plugged in on a regular schedule, optimized charging will not work as intended.
-
-This app is a similar alternative to Optimized Charging, giving the user control over when it is activated, what percentage the battery should be held at, and more.
-
-### How do I support this project?
-
-Do you know how to code? Open a pull-request for a feature with the label [help wanted (PR welcome)](https://github.com/michalkolek/battery/labels/help%20wanted%20%28PR%20welcome%29).
-
-Do you have an awesome feature idea? [Add a feature request](https://github.com/michalkolek/battery/issues/new/choose)
+- Original project and all the SMC reverse-engineering: [actuallymentor/battery](https://github.com/actuallymentor/battery) and its contributors
+- `smc` tool: [hholtmann/smcFanControl](https://github.com/hholtmann/smcFanControl)
+- This fork: same MIT license, see `LICENSE`

@@ -1,6 +1,6 @@
 {
   "name": "battery",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "A battery charge limiter for Apple silicon Mac devices",
   "main": "main.js",
   "build": {
@@ -10,6 +10,7 @@
       "writeUpdateInfo": false
     },
     "compression": "normal",
+    "afterPack": "./build_hooks/afterPack.js",
     "extraFiles": {
       "from": "./assets",
       "to": "resources",
@@ -28,6 +29,8 @@
     "start": "development=true electron .",
     "start:watch": "nodemon --watch . --exec 'skipupdate=true development=true electron .'",
     "build": "rm -rf ./dist/* && electron-builder build --mac --arm64",
+    "install:local": "./scripts/install-local.sh",
+    "rebuild": "npm run build && npm run install:local",
     "lint": "eslint --fix src"
   },
   "repository": "https://github.com/michalkolek/battery",
